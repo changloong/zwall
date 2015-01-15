@@ -1,0 +1,5 @@
+# fstab
+/dev/ad0s1a     /cf      ufs     ro      0       0
+/dev/ad0s1d     /opt ufs     ro      0       0
+tmpfs   /var    tmpfs   rw      0       0
+#proc    /proc   procfs  rw      0       0

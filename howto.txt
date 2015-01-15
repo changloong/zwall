@@ -1,0 +1,86 @@
+http://www.freebsd.org/cgi/man.cgi?query=boot0cfg&sektion=8
+
+// 16M 
+dd if=/dev/zero of=bsd_pa count=32768
+mdconfig -a -t vnode -f bsd_pa -u 33
+
+fdisk -B -u md33
+// [n] y 
+//Supply a decimal value for "sysid (165=FreeBSD)" [165]
+//Supply a decimal value for "start" [63]
+//Supply a decimal value for "size" [32067] 32067
+//Correct this automatically? [n]
+// Explicitly specify beg/end address ? [n] 
+// Are we happy with this entry? [n] y
+//[n] ... 
+//Should we write new partition table? [n] y
+
+bsdlabel -Brw md33s1
+bsdlabel -e /dev/md33s1
+
+// 16M = 32768,  8.3=18432,6.1=13610,offset=18448  || 12=24576, 4=8192, offset=8208
+# /dev/md33s1:
+8 partitions:
+#        size   offset    fstype   [fsize bsize bps/cpg]
+  a:    18432       16    4.2BSD        0     0
+  c:    32067        0    unused        0     0         # "raw" part, don't edit
+  d:    13610    18448    4.2BSD        0     0
+
+// 24M = 48132
+# /dev/md33s1:
+8 partitions:
+#          size     offset    fstype   [fsize bsize bps/cpg]
+  a:      34116         16    4.2BSD        0     0     0
+  c:      48132          0    unused        0     0     # "raw" part, don't edit
+  d:      14000      34132    4.2BSD        0     0     0
+
+
+newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md33s1a
+newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md33s1d
+
+-----------------------------------------
+dd if=/dev/zero of=mfsroot bs=1m count=24
+disklabel -rw md0 auto
+newfs -b 8192 -f 1024 -o space -m 0 /dev/md0a
+----------------------------
+sysinstall get total size
+fdisk -u ad0
+48132 ... 241254719
+bsdlabel -w ad0s3
+
+-------------------------------------------
+// 30M
+dd if=/dev/zero of=img24 count=48200
+mdconfig -a -t vnode -f img24 -u 24
+fdisk -B -u md24
+bsdlabel -Brw md24s1
+bsdlabel -e -A /dev/md24s1 	// fixed geometry does not match label
+-----------------------------------
+#        size   offset    fstype   [fsize bsize bps/cpg]
+  a:    34116       16    4.2BSD        0     0
+  c:    48132        0    unused        0     0         # "raw" part, don't edit
+  d:    14000    34132    4.2BSD        0     0
+-----------------------------------
+newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md24s1a
+newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md24s1d
+
+// loader.rc
+set hw.ata.atapi_dma="0"
+set hw.ata.ata_dma="0"
+set kern.ipc.maxpipekva=10485760
+load /kernel
+load -t mfs_root /mfsroot
+set vfs.root.mountfrom=ufs:/dev/md0a
+boot -v
+
+
+# mfsroot mount patch
+/usr/src/sys/kern/vfs_mountroot.c
+parse_dir_md MD_READONLY
+
+/usr/src/sys/kern/vfs_mount.c
+MNT_UPDATEMASK | MNT_ROOTFS | MNT_RDONLY
+
+
+## test kernel
+make installkernel KERNCONF=xwall KODIR=/boot/testkernel nextboot -k testkernel

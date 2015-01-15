@@ -1,0 +1,27 @@
+#!/bin/sh
+
+cp -R /opt/etc/ /var/etc/
+
+/sbin/ifconfig re0 inet 192.168.0.1/24 up > /tmp/ssh.log 2>&1
+/sbin/ifconfig re1 inet 192.168.1.14/24 up >> /tmp/ssh.log 2>&1
+#route add default 192.168.22.22
+#route add -net 192.168.111.0/24 192.168.110.1
+
+sleep 1
+/usr/sbin/syslogd -P /var/run/syslogd.pid
+if [ ! -f /var/etc/ssh_rsa_host_key ]; then
+    /usr/local/bin/dropbearkey -t rsa -f /var/etc/ssh_rsa_host_key >> /tmp/ssh.log 2>&1
+fi
+/usr/local/sbin/dropbear -r /var/etc/ssh_rsa_host_key >> /tmp/ssh.log 2>&1
+
+/sbin/sysctl net.inet.ip.forwarding=1
+/sbin/sysctl net.inet.ip.fastforwarding=1
+
+#/sbin/pfctl -e
+#/sbin/pfctl -f /home/xwall/pf.conf
+
+#/sbin/kldload if_tap
+#/sbin/pfctl -e
+#/usr/local/sbin/mpd5 -p /var/run/mpd.pid -b
+#/usr/local/sbin/openvpn --config /pbit/etc/ovpn.conf > /tmp/ovpn.log 2>&1 &
+#dnsmasq -i em0 -C /var/etc/dnsmasq.conf

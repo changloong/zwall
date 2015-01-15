@@ -1,0 +1,4 @@
+browser http://wireless.kernel.org/en/users/Drivers/iwlwifi
+b64encode -o iwlwifi-6000g2b-18.168.6.1.fw.uu iwlwifi-6000g2b-6.ucode iwlwifi-6000g2b-18.168.6.1.fw.uu
+rm /usr/src/sys/contrib/dev/iwn/iwlwifi-6000g2b-18.168.6.1.fw.uu
+cp ./iwlwifi-6000g2b-18.168.6.1.fw.uu /usr/src/sys/contrib/dev/iwn/

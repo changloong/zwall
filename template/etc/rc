@@ -1,0 +1,43 @@
+#!/bin/sh
+
+stty status '^T'
+
+trap : 2
+trap : 3
+
+HOME=/root
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:/usr/local/sbin
+TMOUT=0
+export HOME PATH TMOUT
+
+set -T
+trap "echo 'Reboot interrupted'; exit 1" 3
+
+mount -a
+
+# make some directories in /var
+mkdir /var/run /var/log /var/etc /var/db /var/empty /var/tmp /var/tmp/vi.recover 
+chmod 2777 /var/tmp
+
+# generate circular logfiles
+clog -i -s 262144 /var/log/system.log
+clog -i -s 32768 /var/log/filter.log
+clog -i -s 32768 /var/log/portalauth.log
+clog -i -s 1024 /var/log/dhcpd.log
+clog -i -s 32768 /var/log/mpd.log
+chmod 0600 /var/log/*.log
+
+adjkerntz -i
+
+# Create an initial utmp file
+cd /var/run && cp /dev/null utmp && chmod 644 utmp
+
+# Run ldconfig
+/sbin/ldconfig -elf /usr/lib /usr/local/lib
+
+# rc.local
+/opt/rc.local
+
+# csh
+csh
+exit 0

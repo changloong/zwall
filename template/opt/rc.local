@@ -1,0 +1,10 @@
+#!/bin/sh
+
+/sbin/ifconfig re0 inet 192.168.0.1/24 up > /tmp/ssh.log 2>&1
+
+sleep 1
+/usr/sbin/syslogd -P /var/run/syslogd.pid
+if [ ! -f /var/etc/ssh_rsa_host_key ]; then
+    /usr/local/bin/dropbearkey -t rsa -f /var/etc/ssh_rsa_host_key >> /tmp/ssh.log 2>&1
+fi
+/usr/local/sbin/dropbear -r /var/etc/ssh_rsa_host_key >> /tmp/ssh.log 2>&1

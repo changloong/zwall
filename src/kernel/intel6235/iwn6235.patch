@@ -1,0 +1,136 @@
+Index: sys/dev/iwn/if_iwn.c
+===================================================================
+--- sys/dev/iwn/if_iwn.c	(revision 248723)
++++ sys/dev/iwn/if_iwn.c	(working copy)
+@@ -95,6 +95,8 @@ static const struct iwn_ident iwn_ident_table[] =
+ 	{ 0x8086, 0x0886, "Intel Centrino Wireless-N + WiMAX 6150"	},
+ 	{ 0x8086, 0x0896, "Intel Centrino Wireless-N 130"		},
+ 	{ 0x8086, 0x0887, "Intel Centrino Wireless-N 130"		},
++	{ 0x8086, 0x088e, "Intel Centrino Advanced-N 6235"		},
++	{ 0x8086, 0x088f, "Intel Centrino Advanced-N 6235"		},
+ 	{ 0x8086, 0x08ae, "Intel Centrino Wireless-N 100"		},
+ 	{ 0x8086, 0x08af, "Intel Centrino Wireless-N 100"		},
+ 	{ 0x8086, 0x4229, "Intel Wireless WiFi Link 4965"		},
+@@ -4903,7 +4905,7 @@ iwn_send_sensitivity(struct iwn_softc *sc)
+ 	cmd.energy_cck         = htole16(calib->energy_cck);
+ 	/* Barker modulation: use default values. */
+ 	cmd.corr_barker        = htole16(190);
+-	cmd.corr_barker_mrc    = htole16(390);
++	cmd.corr_barker_mrc    = htole16(sc->limits->barker_mrc);
+ 
+ 	DPRINTF(sc, IWN_DEBUG_CALIBRATE,
+ 	    "%s: set sensitivity %d/%d/%d/%d/%d/%d/%d\n", __func__,
+@@ -5461,7 +5463,7 @@ iwn_run(struct iwn_softc *sc, struct ieee80211vap
+ 		sc->rxon.ofdm_mask = 0;
+ 	} else {
+ 		/* Assume 802.11b/g. */
+-		sc->rxon.cck_mask  = 0x0f;
++		sc->rxon.cck_mask  = 0x03;
+ 		sc->rxon.ofdm_mask = 0x15;
+ 	}
+ 	if (IEEE80211_IS_CHAN_HT(ni->ni_chan)) {
+@@ -6656,12 +6658,11 @@ iwn5000_nic_config(struct iwn_softc *sc)
+ 		/* Use internal power amplifier only. */
+ 		IWN_WRITE(sc, IWN_GP_DRIVER, IWN_GP_DRIVER_RADIO_2X2_IPA);
+ 	}
+-	if ((sc->hw_type == IWN_HW_REV_TYPE_6050 ||
+-	     sc->hw_type == IWN_HW_REV_TYPE_6005) && sc->calib_ver >= 6) {
++	if (sc->hw_type == IWN_HW_REV_TYPE_6050 && sc->calib_ver >= 6) {
+ 		/* Indicate that ROM calibration version is >=6. */
+ 		IWN_SETBITS(sc, IWN_GP_DRIVER, IWN_GP_DRIVER_CALIB_VER6);
+ 	}
+-	if (sc->hw_type == IWN_HW_REV_TYPE_6005)
++	if (sc->hw_type == IWN_HW_REV_TYPE_6050)
+ 		IWN_SETBITS(sc, IWN_GP_DRIVER, IWN_GP_DRIVER_6050_1X2);
+ 	return 0;
+ }
+Index: sys/dev/iwn/if_iwnreg.h
+===================================================================
+--- sys/dev/iwn/if_iwnreg.h	(revision 248723)
++++ sys/dev/iwn/if_iwnreg.h	(working copy)
+@@ -1657,6 +1657,7 @@ struct iwn_sensitivity_limits {
+ 	uint32_t	min_energy_cck;
+ 	uint32_t	energy_cck;
+ 	uint32_t	energy_ofdm;
++	uint32_t	barker_mrc;
+ };
+ 
+ /*
+@@ -1671,7 +1672,8 @@ static const struct iwn_sensitivity_limits iwn4965
+ 	200, 400,
+ 	 97,
+ 	100,
+-	100
++	100,
++	390
+ };
+ 
+ static const struct iwn_sensitivity_limits iwn5000_sensitivity_limits = {
+@@ -1683,7 +1685,8 @@ static const struct iwn_sensitivity_limits iwn5000
+ 	170, 400,
+ 	 95,
+ 	 95,
+-	 95
++	 95,
++	390
+ };
+ 
+ static const struct iwn_sensitivity_limits iwn5150_sensitivity_limits = {
+@@ -1695,7 +1698,8 @@ static const struct iwn_sensitivity_limits iwn5150
+ 	170, 400,
+ 	 95,
+ 	 95,
+-	 95
++	 95,
++	390
+ };
+ 
+ static const struct iwn_sensitivity_limits iwn1000_sensitivity_limits = {
+@@ -1707,7 +1711,8 @@ static const struct iwn_sensitivity_limits iwn1000
+ 	170, 400,
+ 	 95,
+ 	 95,
+-	 95
++	 95,
++	390
+ };
+ 
+ static const struct iwn_sensitivity_limits iwn6000_sensitivity_limits = {
+@@ -1717,9 +1722,10 @@ static const struct iwn_sensitivity_limits iwn6000
+ 	128, 232,
+ 	125, 175,
+ 	160, 310,
+-	 97,
+-	 97,
+-	100
++	110,
++	110,
++	110,
++	336
+ };
+ 
+ /* Map TID to TX scheduler's FIFO. */
+Index: sys/modules/iwnfw/iwn6000g2a/Makefile
+===================================================================
+--- sys/modules/iwnfw/iwn6000g2a/Makefile	(revision 248723)
++++ sys/modules/iwnfw/iwn6000g2a/Makefile	(working copy)
+@@ -1,6 +1,6 @@
+ # $FreeBSD$
+ 
+ KMOD=	iwn6000g2afw
+-IMG=	iwlwifi-6000g2a-17.168.5.2
++IMG=	iwlwifi-6000g2a-17.168.5.3
+ 
+ .include <bsd.kmod.mk>
+Index: sys/modules/iwnfw/iwn6000g2b/Makefile
+===================================================================
+--- sys/modules/iwnfw/iwn6000g2b/Makefile	(revision 248723)
++++ sys/modules/iwnfw/iwn6000g2b/Makefile	(working copy)
+@@ -1,6 +1,6 @@
+ # $FreeBSD$
+ 
+ KMOD=	iwn6000g2bfw
+-IMG=	iwlwifi-6000g2b-17.168.5.2
++IMG=	iwlwifi-6000g2b-18.168.6.1
+ 
+ .include <bsd.kmod.mk>
